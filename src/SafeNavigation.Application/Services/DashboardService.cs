@@ -19,6 +19,19 @@ public sealed class DashboardService(ISafeNavigationDbContext db, IClock clock)
         var lastSyncAt = devices.MaxBy(x => x.LastSyncAt ?? x.CreatedAt)?.LastSyncAt;
         var deviceStatus = devices.Count == 0 ? "sem dispositivos" : string.Join(", ", devices.Select(x => x.Status).Distinct());
 
+        if (deviceIds.Count == 0)
+        {
+            return new DashboardSummaryView(
+                ScreenTimeTodayMs: 0,
+                TopApps: [],
+                TopDomains: [],
+                Categories: [],
+                DailyPoints: EmptyDailyPoints(sevenDaysAgo),
+                BlockedAttemptsCount: 0,
+                DeviceStatus: deviceStatus,
+                LastSyncAt: lastSyncAt);
+        }
+
         var todayAppUsages = await db.AppUsages
             .Where(x => deviceIds.Contains(x.DeviceId) && x.UsageDate == today)
             .OrderByDescending(x => x.TotalForegroundMs)
@@ -62,17 +75,26 @@ public sealed class DashboardService(ISafeNavigationDbContext db, IClock clock)
                 x.Source))
             .ToListAsync(cancellationToken);
 
-        var categories = await db.DomainAccesses
+        var categoryRows = await db.DomainAccesses
             .Where(x => deviceIds.Contains(x.DeviceId))
+            .Select(x => new
+            {
+                CategoryName = x.Category == null ? null : x.Category.Name,
+                CategoryDisplayName = x.Category == null ? null : x.Category.DisplayName,
+                CategoryRiskLevel = x.Category == null ? null : (int?)x.Category.RiskLevel,
+                x.AccessCount
+            })
+            .ToListAsync(cancellationToken);
+        var categories = categoryRows
             .GroupBy(x => new
             {
-                Name = x.Category == null ? "unknown" : x.Category.Name,
-                DisplayName = x.Category == null ? "Sites desconhecidos" : x.Category.DisplayName,
-                RiskLevel = x.Category == null ? 2 : x.Category.RiskLevel
+                Name = x.CategoryName ?? "unknown",
+                DisplayName = x.CategoryDisplayName ?? "Sites desconhecidos",
+                RiskLevel = x.CategoryRiskLevel ?? 2
             })
             .Select(x => new CategorySummaryView(x.Key.Name, x.Key.DisplayName, x.Sum(y => y.AccessCount), x.Key.RiskLevel))
             .OrderByDescending(x => x.AccessCount)
-            .ToListAsync(cancellationToken);
+            .ToList();
 
         var appUsageByDay = await db.AppUsages
             .Where(x => deviceIds.Contains(x.DeviceId) && x.UsageDate >= sevenDaysAgo && x.UsageDate <= today)
@@ -111,4 +133,9 @@ public sealed class DashboardService(ISafeNavigationDbContext db, IClock clock)
             deviceStatus,
             lastSyncAt);
     }
+
+    private static IReadOnlyList<DailyPointView> EmptyDailyPoints(DateOnly firstDate) =>
+        Enumerable.Range(0, 7)
+            .Select(offset => new DailyPointView(firstDate.AddDays(offset), 0, 0))
+            .ToList();
 }
