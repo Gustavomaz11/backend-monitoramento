@@ -14,8 +14,8 @@ public static class DependencyInjection
     {
         services.Configure<JwtOptions>(configuration.GetSection("Jwt"));
 
-        var connectionString = configuration.GetConnectionString("Postgres")
-            ?? ConvertDatabaseUrl(configuration["DATABASE_URL"])
+        var connectionString = ConvertDatabaseUrl(configuration["DATABASE_URL"])
+            ?? configuration.GetConnectionString("Postgres")
             ?? throw new InvalidOperationException("ConnectionStrings:Postgres is required.");
 
         services.AddDbContext<SafeNavigationDbContext>(options =>
