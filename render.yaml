@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: backend-monitoramento-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./src/SafeNavigation.Api/Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_URLS
+        value: http://+:10000
+      - key: PORT
+        value: 10000
+      - key: Database__AutoMigrate
+        value: "true"
+      - key: Jwt__SigningKey
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: backend-monitoramento-db
+          property: connectionString
+
+databases:
+  - name: backend-monitoramento-db
+    plan: free

@@ -1,0 +1,865 @@
+openapi: 3.0.3
+info:
+  title: Navegacao Segura API
+  version: 0.1.0-phase1
+  description: Contrato inicial da API para controle parental transparente.
+servers:
+  - url: https://api.localhost.test
+    description: Desenvolvimento local com HTTPS
+tags:
+  - name: Auth
+  - name: Pairing
+  - name: Devices
+  - name: Sync
+  - name: Dashboard
+  - name: DomainAccesses
+  - name: Rules
+  - name: Alerts
+  - name: Privacy
+paths:
+  /api/v1/auth/register:
+    post:
+      tags: [Auth]
+      summary: Cadastra um responsável.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterGuardianRequest"
+      responses:
+        "201":
+          description: Responsável cadastrado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Autentica responsável.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Tokens do responsável.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Credenciais inválidas.
+  /api/v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotaciona access token usando refresh token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+      responses:
+        "200":
+          description: Novo par de tokens.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      security:
+        - guardianBearer: []
+      summary: Revoga refresh token atual.
+      responses:
+        "204":
+          description: Revogado.
+
+  /api/v1/pairing-codes:
+    post:
+      tags: [Pairing]
+      security:
+        - guardianBearer: []
+      summary: Cria código temporário para vincular celular da criança.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePairingCodeRequest"
+      responses:
+        "201":
+          description: Código criado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PairingCodeResponse"
+  /api/v1/device-pairing/complete:
+    post:
+      tags: [Pairing]
+      summary: Vincula dispositivo Android usando código ou QR Code.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompletePairingRequest"
+      responses:
+        "201":
+          description: Dispositivo vinculado e token de dispositivo emitido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceAuthResponse"
+        "410":
+          description: Código expirado.
+
+  /api/v1/devices:
+    get:
+      tags: [Devices]
+      security:
+        - guardianBearer: []
+      summary: Lista dispositivos do responsável.
+      responses:
+        "200":
+          description: Dispositivos.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DeviceSummary"
+  /api/v1/devices/{deviceId}/config:
+    get:
+      tags: [Devices]
+      security:
+        - deviceBearer: []
+      summary: Obtém configuração atual do dispositivo.
+      parameters:
+        - $ref: "#/components/parameters/DeviceId"
+      responses:
+        "200":
+          description: Configuração.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceConfig"
+    put:
+      tags: [Devices]
+      security:
+        - guardianBearer: []
+      summary: Atualiza configuração do dispositivo.
+      parameters:
+        - $ref: "#/components/parameters/DeviceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDeviceConfigRequest"
+      responses:
+        "200":
+          description: Configuração atualizada.
+
+  /api/v1/sync/batches:
+    post:
+      tags: [Sync]
+      security:
+        - deviceBearer: []
+      summary: Sincroniza registros coletados no Android.
+      description: Endpoint idempotente por deviceId e clientBatchId.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SyncBatchRequest"
+      responses:
+        "202":
+          description: Lote aceito.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncBatchResponse"
+        "409":
+          description: Lote já processado.
+
+  /api/v1/domain-accesses:
+    get:
+      tags: [DomainAccesses]
+      security:
+        - guardianBearer: []
+      summary: Lista acessos de dominio com nome da crianca.
+      description: Retorna apenas metadados de dominio/IP/protocolo/porta e horarios. Nao retorna URL completa, path, query string, cookies, cabecalhos ou corpo de requisicao.
+      parameters:
+        - name: deviceId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 500
+      responses:
+        "200":
+          description: Historico de dominios.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DomainAccessView"
+
+  /api/v1/dashboard/summary:
+    get:
+      tags: [Dashboard]
+      security:
+        - guardianBearer: []
+      summary: Resumo do dashboard.
+      parameters:
+        - name: childId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Resumo diário.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+  /api/v1/reports/daily:
+    get:
+      tags: [Dashboard]
+      security:
+        - guardianBearer: []
+      summary: Relatório diário.
+      parameters:
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Relatório diário.
+  /api/v1/reports/weekly:
+    get:
+      tags: [Dashboard]
+      security:
+        - guardianBearer: []
+      summary: Relatório semanal.
+      parameters:
+        - name: weekStart
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Relatório semanal.
+
+  /api/v1/rules:
+    get:
+      tags: [Rules]
+      security:
+        - guardianBearer: []
+      summary: Lista regras.
+      responses:
+        "200":
+          description: Regras.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BlockingRule"
+    post:
+      tags: [Rules]
+      security:
+        - guardianBearer: []
+      summary: Cria regra de bloqueio, permissão ou alerta.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRuleRequest"
+      responses:
+        "201":
+          description: Regra criada.
+  /api/v1/rules/{ruleId}:
+    put:
+      tags: [Rules]
+      security:
+        - guardianBearer: []
+      summary: Atualiza regra.
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Regra atualizada.
+    delete:
+      tags: [Rules]
+      security:
+        - guardianBearer: []
+      summary: Remove regra.
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Regra removida.
+
+  /api/v1/unblock-requests:
+    post:
+      tags: [Rules]
+      security:
+        - deviceBearer: []
+      summary: Criança solicita desbloqueio.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUnblockRequest"
+      responses:
+        "201":
+          description: Pedido criado.
+  /api/v1/unblock-requests/{requestId}/decision:
+    post:
+      tags: [Rules]
+      security:
+        - guardianBearer: []
+      summary: Responsável aprova ou nega pedido.
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnblockDecisionRequest"
+      responses:
+        "200":
+          description: Decisão registrada.
+
+  /api/v1/alerts:
+    get:
+      tags: [Alerts]
+      security:
+        - guardianBearer: []
+      summary: Lista alertas.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [new, read, resolved]
+      responses:
+        "200":
+          description: Alertas.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Alert"
+  /api/v1/alerts/{alertId}/status:
+    patch:
+      tags: [Alerts]
+      security:
+        - guardianBearer: []
+      summary: Atualiza status do alerta.
+      parameters:
+        - name: alertId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Atualizado.
+
+  /api/v1/privacy/export:
+    post:
+      tags: [Privacy]
+      security:
+        - guardianBearer: []
+      summary: Solicita exportação de dados.
+      responses:
+        "202":
+          description: Exportação solicitada.
+  /api/v1/privacy/delete-all:
+    post:
+      tags: [Privacy]
+      security:
+        - guardianBearer: []
+      summary: Solicita exclusão total dos dados do responsável.
+      responses:
+        "202":
+          description: Exclusão solicitada.
+
+components:
+  securitySchemes:
+    guardianBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token de responsável.
+    deviceBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token de dispositivo Android.
+  parameters:
+    DeviceId:
+      name: deviceId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    ValidationError:
+      description: Erro de validação.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+  schemas:
+    RegisterGuardianRequest:
+      type: object
+      required: [email, password, displayName, acceptedTerms]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 12
+        displayName:
+          type: string
+        acceptedTerms:
+          type: boolean
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+    AuthResponse:
+      type: object
+      required: [accessToken, refreshToken, expiresIn]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+    CreatePairingCodeRequest:
+      type: object
+      required: [childDisplayName]
+      properties:
+        childDisplayName:
+          type: string
+        deviceName:
+          type: string
+    PairingCodeResponse:
+      type: object
+      required: [pairingCode, expiresAt, qrPayload]
+      properties:
+        pairingCode:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        qrPayload:
+          type: string
+    CompletePairingRequest:
+      type: object
+      required: [pairingCode, deviceInfo]
+      properties:
+        pairingCode:
+          type: string
+        deviceInfo:
+          $ref: "#/components/schemas/DeviceInfo"
+    DeviceInfo:
+      type: object
+      properties:
+        appVersion:
+          type: string
+        androidVersion:
+          type: string
+        manufacturer:
+          type: string
+        model:
+          type: string
+    DeviceAuthResponse:
+      type: object
+      required: [deviceId, accessToken, refreshToken, config]
+      properties:
+        deviceId:
+          type: string
+          format: uuid
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        config:
+          $ref: "#/components/schemas/DeviceConfig"
+    DeviceSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        childDisplayName:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        lastSyncAt:
+          type: string
+          format: date-time
+          nullable: true
+    DeviceConfig:
+      type: object
+      properties:
+        retentionDays:
+          type: integer
+        vpnEnabled:
+          type: boolean
+        usageStatsEnabled:
+          type: boolean
+        syncIntervalMinutes:
+          type: integer
+        timezone:
+          type: string
+        configVersion:
+          type: integer
+    UpdateDeviceConfigRequest:
+      allOf:
+        - $ref: "#/components/schemas/DeviceConfig"
+    SyncBatchRequest:
+      type: object
+      required: [clientBatchId, deviceId, occurredFrom, occurredTo]
+      properties:
+        clientBatchId:
+          type: string
+          format: uuid
+        deviceId:
+          type: string
+          format: uuid
+        occurredFrom:
+          type: string
+          format: date-time
+        occurredTo:
+          type: string
+          format: date-time
+        appUsages:
+          type: array
+          items:
+            $ref: "#/components/schemas/AppUsageRecord"
+        domainAccesses:
+          type: array
+          items:
+            $ref: "#/components/schemas/DomainAccessRecord"
+        blockAttempts:
+          type: array
+          items:
+            $ref: "#/components/schemas/BlockAttemptRecord"
+    SyncBatchResponse:
+      type: object
+      properties:
+        syncBatchId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [accepted, partial, rejected]
+        recordsAccepted:
+          type: integer
+        serverTime:
+          type: string
+          format: date-time
+        configVersion:
+          type: integer
+    AppUsageRecord:
+      type: object
+      required: [localId, packageName, usageDate, totalForegroundMs]
+      properties:
+        localId:
+          type: string
+          format: uuid
+        packageName:
+          type: string
+        appName:
+          type: string
+        usageDate:
+          type: string
+          format: date
+        totalForegroundMs:
+          type: integer
+          format: int64
+        firstUsedAt:
+          type: string
+          format: date-time
+        lastUsedAt:
+          type: string
+          format: date-time
+        openCountEstimate:
+          type: integer
+    DomainAccessRecord:
+      type: object
+      required: [localId, protocol, firstAccessAt, lastAccessAt, accessCount, correlationType, source]
+      properties:
+        localId:
+          type: string
+          format: uuid
+        domain:
+          type: string
+          nullable: true
+        ipAddress:
+          type: string
+          nullable: true
+        protocol:
+          type: string
+          enum: [tcp, udp, icmp, unknown]
+        port:
+          type: integer
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        firstAccessAt:
+          type: string
+          format: date-time
+        lastAccessAt:
+          type: string
+          format: date-time
+        accessCount:
+          type: integer
+        foregroundPackageName:
+          type: string
+          nullable: true
+        correlationType:
+          type: string
+          enum: [none, estimated, observed]
+        source:
+          type: string
+          enum: [dns, sni_if_available, ip_only, manual, unknown]
+    DomainAccessView:
+      type: object
+      required: [id, deviceId, childDisplayName, deviceName, protocol, firstAccessAt, lastAccessAt, accessCount, correlationType, source]
+      properties:
+        id:
+          type: string
+          format: uuid
+        deviceId:
+          type: string
+          format: uuid
+        childDisplayName:
+          type: string
+        deviceName:
+          type: string
+        domain:
+          type: string
+          nullable: true
+        ipAddress:
+          type: string
+          nullable: true
+        protocol:
+          type: string
+          enum: [tcp, udp, icmp, unknown]
+        port:
+          type: integer
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        firstAccessAt:
+          type: string
+          format: date-time
+        lastAccessAt:
+          type: string
+          format: date-time
+        accessCount:
+          type: integer
+        foregroundPackageName:
+          type: string
+          nullable: true
+        correlationType:
+          type: string
+          enum: [none, estimated, observed]
+        source:
+          type: string
+          enum: [dns, sni_if_available, ip_only, manual, unknown]
+    BlockAttemptRecord:
+      allOf:
+        - $ref: "#/components/schemas/DomainAccessRecord"
+        - type: object
+          properties:
+            ruleId:
+              type: string
+              format: uuid
+              nullable: true
+            attemptedAt:
+              type: string
+              format: date-time
+    DashboardSummary:
+      type: object
+      properties:
+        screenTimeTodayMs:
+          type: integer
+          format: int64
+        topApps:
+          type: array
+          items:
+            $ref: "#/components/schemas/AppUsageRecord"
+        topDomains:
+          type: array
+          items:
+            $ref: "#/components/schemas/DomainAccessRecord"
+        blockedAttemptsCount:
+          type: integer
+        lastSyncAt:
+          type: string
+          format: date-time
+          nullable: true
+    BlockingRule:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ruleType:
+          type: string
+          enum: [domain, category, schedule, allow_domain]
+        value:
+          type: string
+        action:
+          type: string
+          enum: [block, allow, alert_only]
+        priority:
+          type: integer
+        enabled:
+          type: boolean
+    CreateRuleRequest:
+      type: object
+      required: [ruleType, value, action]
+      properties:
+        ruleType:
+          type: string
+          enum: [domain, category, schedule, allow_domain]
+        value:
+          type: string
+        action:
+          type: string
+          enum: [block, allow, alert_only]
+        childId:
+          type: string
+          format: uuid
+          nullable: true
+        deviceId:
+          type: string
+          format: uuid
+          nullable: true
+    CreateUnblockRequest:
+      type: object
+      required: [domain]
+      properties:
+        domain:
+          type: string
+        message:
+          type: string
+          maxLength: 500
+    UnblockDecisionRequest:
+      type: object
+      required: [decision]
+      properties:
+        decision:
+          type: string
+          enum: [approved, denied]
+        reason:
+          type: string
+    Alert:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        alertType:
+          type: string
+          enum: [adult, gambling, violence, malicious, manual_block]
+        severity:
+          type: string
+          enum: [info, warning, critical]
+        title:
+          type: string
+        summary:
+          type: string
+        status:
+          type: string
+          enum: [new, read, resolved]
+        createdAt:
+          type: string
+          format: date-time
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        traceId:
+          type: string
