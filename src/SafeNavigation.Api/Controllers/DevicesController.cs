@@ -18,6 +18,14 @@ public sealed class DevicesController(DeviceService deviceService) : ControllerB
         return Ok(await deviceService.ListGuardianDevicesAsync(this.ActorId(), cancellationToken));
     }
 
+    [Authorize(Policy = "GuardianOnly")]
+    [HttpDelete("{deviceId:guid}")]
+    public async Task<IActionResult> Revoke(Guid deviceId, CancellationToken cancellationToken)
+    {
+        await deviceService.RevokeAsync(deviceId, this.ActorId(), cancellationToken);
+        return NoContent();
+    }
+
     [Authorize(Policy = "AuthenticatedActor")]
     [HttpGet("{deviceId:guid}/config")]
     public async Task<ActionResult<DeviceConfigDto>> GetConfig(Guid deviceId, CancellationToken cancellationToken)

@@ -140,6 +140,19 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/DeviceSummary"
+  /api/v1/devices/{deviceId}:
+    delete:
+      tags: [Devices]
+      security:
+        - guardianBearer: []
+      summary: Desvincula um dispositivo e revoga suas credenciais.
+      parameters:
+        - $ref: "#/components/parameters/DeviceId"
+      responses:
+        "204":
+          description: Dispositivo desvinculado.
+        "404":
+          description: Dispositivo ativo nao encontrado para o responsavel.
   /api/v1/devices/{deviceId}/config:
     get:
       tags: [Devices]

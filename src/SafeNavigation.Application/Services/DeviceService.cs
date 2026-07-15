@@ -10,10 +10,46 @@ public sealed class DeviceService(ISafeNavigationDbContext db, IClock clock)
     public async Task<IReadOnlyList<DeviceSummary>> ListGuardianDevicesAsync(Guid guardianId, CancellationToken cancellationToken)
     {
         return await db.Devices
-            .Where(x => x.Child!.GuardianId == guardianId)
+            .Where(x => x.Child!.GuardianId == guardianId && x.Status == "active")
             .OrderByDescending(x => x.LastSyncAt ?? x.CreatedAt)
             .Select(x => new DeviceSummary(x.Id, x.Child!.DisplayName, x.Name, x.Status, x.LastSyncAt))
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task RevokeAsync(Guid deviceId, Guid guardianId, CancellationToken cancellationToken)
+    {
+        var device = await db.Devices
+            .Include(x => x.Config)
+            .Include(x => x.RefreshTokens)
+            .FirstOrDefaultAsync(
+                x => x.Id == deviceId && x.Child!.GuardianId == guardianId && x.Status == "active",
+                cancellationToken);
+        if (device is null) throw new ResourceNotFoundException("Device not found.");
+
+        device.Status = "revoked";
+        if (device.Config is not null)
+        {
+            device.Config.VpnEnabled = false;
+            device.Config.ConfigVersion += 1;
+            device.Config.UpdatedAt = clock.UtcNow;
+        }
+
+        foreach (var token in device.RefreshTokens.Where(x => x.RevokedAt is null))
+        {
+            token.RevokedAt = clock.UtcNow;
+        }
+
+        db.AuditLogs.Add(new SafeNavigation.Domain.Entities.AuditLog
+        {
+            ActorType = "guardian",
+            ActorId = guardianId,
+            Action = "device.revoked",
+            EntityType = "device",
+            EntityId = device.Id,
+            CreatedAt = clock.UtcNow
+        });
+
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<DeviceConfigDto> GetConfigAsync(Guid deviceId, Guid actorId, string actorType, CancellationToken cancellationToken)
