@@ -12,3 +12,5 @@ public sealed record AppUsageView(
     DateTimeOffset? FirstUsedAt,
     DateTimeOffset? LastUsedAt,
     int OpenCountEstimate);
+
+public sealed record AppUsageQuery(Guid? DeviceId, DateOnly? From, DateOnly? To, int Page, int PageSize);

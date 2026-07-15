@@ -6,25 +6,25 @@ namespace SafeNavigation.Application.Services;
 
 public sealed class AppUsageService(ISafeNavigationDbContext db)
 {
-    public async Task<IReadOnlyList<AppUsageView>> ListGuardianAppUsagesAsync(
+    public async Task<PagedResponse<AppUsageView>> ListGuardianAppUsagesAsync(
         Guid guardianId,
-        Guid? deviceId,
-        int limit,
+        AppUsageQuery request,
         CancellationToken cancellationToken)
     {
-        var normalizedLimit = Math.Clamp(limit, 1, 500);
-        var query = db.AppUsages
-            .Where(x => x.Device!.Child!.GuardianId == guardianId);
+        var page = Math.Max(request.Page, 1);
+        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+        var query = db.AppUsages.Where(x => x.Device!.Child!.GuardianId == guardianId);
 
-        if (deviceId is not null)
-        {
-            query = query.Where(x => x.DeviceId == deviceId);
-        }
+        if (request.DeviceId is not null) query = query.Where(x => x.DeviceId == request.DeviceId);
+        if (request.From is not null) query = query.Where(x => x.UsageDate >= request.From);
+        if (request.To is not null) query = query.Where(x => x.UsageDate <= request.To);
 
-        return await query
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
             .OrderByDescending(x => x.UsageDate)
             .ThenByDescending(x => x.TotalForegroundMs)
-            .Take(normalizedLimit)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(x => new AppUsageView(
                 x.Id,
                 x.DeviceId,
@@ -38,5 +38,7 @@ public sealed class AppUsageService(ISafeNavigationDbContext db)
                 x.LastUsedAt,
                 x.OpenCountEstimate))
             .ToListAsync(cancellationToken);
+
+        return new PagedResponse<AppUsageView>(items, page, pageSize, totalCount);
     }
 }

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SafeNavigation.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using SafeNavigation.Infrastructure.Persistence;
 namespace SafeNavigation.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(SafeNavigationDbContext))]
-    partial class SafeNavigationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260715005213_RobustSyncRecordIdentity")]
+    partial class RobustSyncRecordIdentity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

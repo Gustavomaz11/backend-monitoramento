@@ -6,24 +6,37 @@ namespace SafeNavigation.Application.Services;
 
 public sealed class DomainAccessService(ISafeNavigationDbContext db)
 {
-    public async Task<IReadOnlyList<DomainAccessView>> ListGuardianDomainAccessesAsync(
+    public async Task<PagedResponse<DomainAccessView>> ListGuardianDomainAccessesAsync(
         Guid guardianId,
-        Guid? deviceId,
-        int limit,
+        DomainAccessQuery request,
         CancellationToken cancellationToken)
     {
-        var normalizedLimit = Math.Clamp(limit, 1, 500);
-        var query = db.DomainAccesses
-            .Where(x => x.Device!.Child!.GuardianId == guardianId);
+        var page = Math.Max(request.Page, 1);
+        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+        var query = db.DomainAccesses.Where(x => x.Device!.Child!.GuardianId == guardianId);
 
-        if (deviceId is not null)
+        if (request.DeviceId is not null) query = query.Where(x => x.DeviceId == request.DeviceId);
+        if (!string.IsNullOrWhiteSpace(request.Domain))
         {
-            query = query.Where(x => x.DeviceId == deviceId);
+            var domain = request.Domain.Trim().ToLowerInvariant();
+            query = query.Where(x => x.Domain != null && x.Domain.Contains(domain));
         }
 
-        return await query
+        if (!string.IsNullOrWhiteSpace(request.Category))
+        {
+            var category = request.Category.Trim().ToLowerInvariant();
+            query = query.Where(x => x.Category != null && x.Category.Name == category);
+        }
+
+        if (request.From is not null) query = query.Where(x => x.LastAccessAt >= request.From);
+        if (request.To is not null) query = query.Where(x => x.LastAccessAt <= request.To);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
             .OrderByDescending(x => x.LastAccessAt)
-            .Take(normalizedLimit)
+            .ThenByDescending(x => x.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(x => new DomainAccessView(
                 x.Id,
                 x.DeviceId,
@@ -41,5 +54,7 @@ public sealed class DomainAccessService(ISafeNavigationDbContext db)
                 x.CorrelationType,
                 x.Source))
             .ToListAsync(cancellationToken);
+
+        return new PagedResponse<DomainAccessView>(items, page, pageSize, totalCount);
     }
 }

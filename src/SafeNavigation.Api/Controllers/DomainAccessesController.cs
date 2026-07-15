@@ -11,16 +11,19 @@ public sealed class DomainAccessesController(DomainAccessService domainAccessSer
 {
     [Authorize(Policy = "GuardianOnly")]
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<DomainAccessView>>> List(
+    public async Task<ActionResult<PagedResponse<DomainAccessView>>> List(
         [FromQuery] Guid? deviceId,
-        [FromQuery] int limit,
-        CancellationToken cancellationToken)
+        [FromQuery] string? domain,
+        [FromQuery] string? category,
+        [FromQuery] DateTimeOffset? from,
+        [FromQuery] DateTimeOffset? to,
+        CancellationToken cancellationToken,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
     {
-        var effectiveLimit = limit <= 0 ? 100 : limit;
         var accesses = await domainAccessService.ListGuardianDomainAccessesAsync(
             this.ActorId(),
-            deviceId,
-            effectiveLimit,
+            new DomainAccessQuery(deviceId, domain, category, from, to, page, pageSize),
             cancellationToken);
 
         return Ok(accesses);

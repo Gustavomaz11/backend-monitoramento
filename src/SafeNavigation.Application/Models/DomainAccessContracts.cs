@@ -16,3 +16,12 @@ public sealed record DomainAccessView(
     string? ForegroundPackageName,
     string CorrelationType,
     string Source);
+
+public sealed record DomainAccessQuery(
+    Guid? DeviceId,
+    string? Domain,
+    string? Category,
+    DateTimeOffset? From,
+    DateTimeOffset? To,
+    int Page,
+    int PageSize);

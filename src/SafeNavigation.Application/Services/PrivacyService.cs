@@ -54,7 +54,10 @@ public sealed class PrivacyService(ISafeNavigationDbContext db, IClock clock)
         var guardian = await db.Guardians.FirstOrDefaultAsync(x => x.Id == guardianId, cancellationToken);
         if (guardian is not null)
         {
-            guardian.Status = "pending_delete";
+            guardian.Email = $"deleted-{guardian.Id:N}@deleted.invalid";
+            guardian.DisplayName = "Conta excluida";
+            guardian.PasswordHash = "deleted";
+            guardian.Status = "deleted";
             guardian.UpdatedAt = clock.UtcNow;
         }
 

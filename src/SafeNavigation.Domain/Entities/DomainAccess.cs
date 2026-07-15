@@ -4,6 +4,7 @@ public sealed class DomainAccess
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid DeviceId { get; set; }
+    public Guid ClientRecordId { get; set; }
     public Device? Device { get; set; }
     public string? Domain { get; set; }
     public string? IpAddress { get; set; }

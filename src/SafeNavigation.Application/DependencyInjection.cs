@@ -17,6 +17,7 @@ public static class DependencyInjection
         services.AddScoped<AppUsageService>();
         services.AddScoped<DashboardService>();
         services.AddScoped<SyncService>();
+        services.AddScoped<SyncAlertFactory>();
         services.AddScoped<RulesService>();
         services.AddScoped<AlertsService>();
         services.AddScoped<PrivacyService>();

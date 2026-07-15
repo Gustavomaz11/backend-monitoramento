@@ -15,7 +15,7 @@ services:
       - key: Database__AutoMigrate
         value: "true"
       - key: Cors__AllowedOrigins__0
-        value: "*"
+        value: https://frontend-monitoramento.vercel.app
       - key: Jwt__SigningKey
         generateValue: true
       - key: DATABASE_URL

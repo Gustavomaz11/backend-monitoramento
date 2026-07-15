@@ -86,6 +86,7 @@ public sealed class SafeNavigationDbContext(DbContextOptions<SafeNavigationDbCon
         modelBuilder.Entity<AppUsage>(entity =>
         {
             entity.ToTable("app_usage");
+            entity.HasIndex(x => new { x.DeviceId, x.ClientRecordId }).IsUnique();
             entity.HasIndex(x => new { x.DeviceId, x.PackageName, x.UsageDate }).IsUnique();
             entity.HasIndex(x => new { x.DeviceId, x.UsageDate });
         });
@@ -110,6 +111,7 @@ public sealed class SafeNavigationDbContext(DbContextOptions<SafeNavigationDbCon
         modelBuilder.Entity<DomainAccess>(entity =>
         {
             entity.ToTable("domain_accesses");
+            entity.HasIndex(x => new { x.DeviceId, x.ClientRecordId }).IsUnique();
             entity.HasIndex(x => new { x.DeviceId, x.Domain, x.LastAccessAt });
             entity.HasIndex(x => new { x.DeviceId, x.IpAddress, x.LastAccessAt });
         });
@@ -125,6 +127,7 @@ public sealed class SafeNavigationDbContext(DbContextOptions<SafeNavigationDbCon
         modelBuilder.Entity<BlockAttempt>(entity =>
         {
             entity.ToTable("block_attempts");
+            entity.HasIndex(x => new { x.DeviceId, x.ClientRecordId }).IsUnique();
             entity.HasIndex(x => new { x.DeviceId, x.AttemptedAt });
         });
 

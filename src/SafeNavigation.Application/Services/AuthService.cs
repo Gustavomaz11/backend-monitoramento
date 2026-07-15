@@ -42,7 +42,7 @@ public sealed class AuthService(
     {
         var email = NormalizeEmail(request.Email);
         var guardian = await db.Guardians.FirstOrDefaultAsync(x => x.Email == email, cancellationToken);
-        if (guardian is null || !passwordHasher.Verify(request.Password, guardian.PasswordHash))
+        if (guardian is null || guardian.Status != "active" || !passwordHasher.Verify(request.Password, guardian.PasswordHash))
         {
             throw new UnauthorizedOperationException("Invalid credentials.");
         }

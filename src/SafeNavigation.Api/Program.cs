@@ -2,6 +2,8 @@ using System.Text;
 using System.Threading.RateLimiting;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -27,6 +29,11 @@ builder.Services.AddCors(options =>
 
         if (allowedOrigins.Contains("*"))
         {
+            if (!builder.Environment.IsDevelopment())
+            {
+                throw new InvalidOperationException("Cors:AllowedOrigins cannot contain '*' in production.");
+            }
+
             policy.AllowAnyOrigin()
                 .AllowAnyHeader()
                 .AllowAnyMethod();
@@ -41,9 +48,12 @@ builder.Services.AddCors(options =>
             return;
         }
 
-        policy.AllowAnyOrigin()
-            .AllowAnyHeader()
-            .AllowAnyMethod();
+        if (!builder.Environment.IsDevelopment())
+        {
+            throw new InvalidOperationException("Cors:AllowedOrigins must be configured in production.");
+        }
+
+        policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
     });
 });
 builder.Services.AddApplication(builder.Configuration);
@@ -54,6 +64,10 @@ if (string.IsNullOrWhiteSpace(jwtOptions.SigningKey) || jwtOptions.SigningKey.Le
 {
     throw new InvalidOperationException("Jwt:SigningKey must contain at least 32 characters.");
 }
+if (!builder.Environment.IsDevelopment() && jwtOptions.SigningKey.StartsWith("dev-only", StringComparison.Ordinal))
+{
+    throw new InvalidOperationException("Jwt:SigningKey must be replaced in production.");
+}
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -63,7 +77,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         {
             ValidateIssuer = true,
             ValidIssuer = jwtOptions.Issuer,
-            ValidateAudience = false,
+            ValidateAudience = true,
+            ValidAudiences = [jwtOptions.GuardianAudience, jwtOptions.DeviceAudience],
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey)),
             ValidateLifetime = true,
@@ -71,14 +86,37 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             RoleClaimType = "role",
             NameClaimType = "sub"
         };
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var subject = context.Principal?.FindFirst("sub")?.Value;
+                var actorType = context.Principal?.FindFirst("actor_type")?.Value;
+                if (!Guid.TryParse(subject, out var actorId))
+                {
+                    context.Fail("Invalid token subject.");
+                    return;
+                }
+
+                var db = context.HttpContext.RequestServices.GetRequiredService<SafeNavigationDbContext>();
+                var active = actorType switch
+                {
+                    "guardian" => await db.Guardians.AnyAsync(x => x.Id == actorId && x.Status == "active"),
+                    "device" => await db.Devices.AnyAsync(x => x.Id == actorId && x.Status == "active"),
+                    _ => false
+                };
+                if (!active) context.Fail("Token actor is no longer active.");
+            }
+        };
     });
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("GuardianOnly", policy => policy.RequireRole("guardian"));
-    options.AddPolicy("DeviceOnly", policy => policy.RequireRole("device"));
+    options.AddPolicy("GuardianOnly", policy => policy.RequireRole("guardian").RequireClaim("actor_type", "guardian"));
+    options.AddPolicy("DeviceOnly", policy => policy.RequireRole("device").RequireClaim("actor_type", "device"));
     options.AddPolicy("AuthenticatedActor", policy => policy.RequireAuthenticatedUser());
 });
+builder.Services.AddHealthChecks().AddDbContextCheck<SafeNavigationDbContext>("postgres");
 
 builder.Services.AddRateLimiter(options =>
 {
@@ -102,6 +140,18 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
+if (!app.Environment.IsDevelopment())
+{
+    var forwardedHeaders = new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+        ForwardLimit = 1
+    };
+    forwardedHeaders.KnownNetworks.Clear();
+    forwardedHeaders.KnownProxies.Clear();
+    app.UseForwardedHeaders(forwardedHeaders);
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -116,11 +166,12 @@ if (app.Configuration.GetValue<bool>("Database:AutoMigrate"))
 }
 
 app.UseMiddleware<ApplicationExceptionMiddleware>();
-app.UseRateLimiter();
 app.UseCors("DefaultCors");
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
-app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
+app.MapGet("/health/live", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
+app.MapHealthChecks("/health", new HealthCheckOptions()).AllowAnonymous();
 app.MapControllers();
 
 app.Run();

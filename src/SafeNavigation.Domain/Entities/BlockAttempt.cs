@@ -4,6 +4,7 @@ public sealed class BlockAttempt
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid DeviceId { get; set; }
+    public Guid ClientRecordId { get; set; }
     public Device? Device { get; set; }
     public Guid? BlockingRuleId { get; set; }
     public string? Domain { get; set; }

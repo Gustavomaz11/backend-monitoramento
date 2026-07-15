@@ -6,9 +6,11 @@ namespace SafeNavigation.Application.Services;
 
 public sealed class DashboardService(ISafeNavigationDbContext db, IClock clock)
 {
+    private static readonly TimeZoneInfo BrasiliaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
+
     public async Task<DashboardSummaryView> GetSummaryAsync(Guid guardianId, CancellationToken cancellationToken)
     {
-        var today = DateOnly.FromDateTime(clock.UtcNow.UtcDateTime);
+        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(clock.UtcNow, BrasiliaTimeZone).DateTime);
         var sevenDaysAgo = today.AddDays(-6);
         var since = clock.UtcNow.AddDays(-1);
 
@@ -106,7 +108,7 @@ public sealed class DashboardService(ISafeNavigationDbContext db, IClock clock)
             .Where(x => deviceIds.Contains(x.DeviceId) && x.AttemptedAt >= clock.UtcNow.AddDays(-7))
             .ToListAsync(cancellationToken);
         var blockAttemptsByDay = blockAttempts
-            .GroupBy(x => DateOnly.FromDateTime(x.AttemptedAt.UtcDateTime))
+            .GroupBy(x => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(x.AttemptedAt, BrasiliaTimeZone).DateTime))
             .Select(x => new { Date = x.Key, Count = x.Count() })
             .ToList();
 

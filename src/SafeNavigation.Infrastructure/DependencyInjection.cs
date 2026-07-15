@@ -51,7 +51,6 @@ public static class DependencyInjection
             $"Database={database}",
             $"Username={username}",
             $"Password={password}",
-            "SSL Mode=Require",
-            "Trust Server Certificate=true");
+            "SSL Mode=VerifyFull");
     }
 }

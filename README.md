@@ -42,6 +42,7 @@ No Render:
 4. A variavel `DATABASE_URL` vem do banco gerenciado do Render.
 5. `Jwt__SigningKey` e gerada automaticamente pelo Blueprint.
 6. `Database__AutoMigrate=true` aplica migrations na inicializacao.
+7. Configure `Cors__AllowedOrigins__0` com a URL exata do painel Vercel. `*` e rejeitado em producao.
 
 Health check: `/health`.
 
@@ -60,7 +61,8 @@ Tambem e possivel criar o Web Service manualmente:
 - Codigo temporario de pareamento com hash no banco.
 - Vinculacao de dispositivo Android e emissao de token de dispositivo.
 - Listagem de dispositivos, leitura e atualizacao de configuracao.
-- Sincronizacao idempotente por `deviceId + clientBatchId`.
+- Sincronizacao idempotente por lote e por registro local, isolada por dispositivo.
+- Historicos de dominios e aplicativos com filtros e paginacao.
 - CRUD de regras, alertas, pedidos de desbloqueio e endpoints de privacidade.
 - Alertas gerados durante sync para categorias sensiveis e tentativas bloqueadas.
 - Rate limiting global, auditoria inicial e validacao via FluentValidation.
@@ -69,5 +71,6 @@ Tambem e possivel criar o Web Service manualmente:
 
 - Senhas usam BCrypt.
 - Tokens e codigos de pareamento nao sao persistidos em claro.
+- JWT valida issuer, audience e tipo de ator antes das policies.
 - A API nao registra payload sensivel nos logs por implementacao propria.
 - O banco esta preparado com tabelas de auditoria, sync e retencao configuravel por dispositivo.

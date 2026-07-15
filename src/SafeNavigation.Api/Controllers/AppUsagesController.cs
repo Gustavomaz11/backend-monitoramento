@@ -11,12 +11,15 @@ public sealed class AppUsagesController(AppUsageService appUsageService) : Contr
 {
     [Authorize(Policy = "GuardianOnly")]
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<AppUsageView>>> List(
+    public async Task<ActionResult<PagedResponse<AppUsageView>>> List(
         [FromQuery] Guid? deviceId,
-        [FromQuery] int limit,
-        CancellationToken cancellationToken)
+        [FromQuery] DateOnly? from,
+        [FromQuery] DateOnly? to,
+        CancellationToken cancellationToken,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
     {
-        var effectiveLimit = limit <= 0 ? 200 : limit;
-        return Ok(await appUsageService.ListGuardianAppUsagesAsync(this.ActorId(), deviceId, effectiveLimit, cancellationToken));
+        var query = new AppUsageQuery(deviceId, from, to, page, pageSize);
+        return Ok(await appUsageService.ListGuardianAppUsagesAsync(this.ActorId(), query, cancellationToken));
     }
 }

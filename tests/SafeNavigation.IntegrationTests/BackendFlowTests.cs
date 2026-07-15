@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using SafeNavigation.Application.Models;
 using SafeNavigation.Infrastructure.Persistence;
 
@@ -45,17 +46,23 @@ public sealed class BackendFlowTests
         var deviceAuth = await ReadJsonAsync<DeviceAuthResponse>(completeResponse);
 
         var batchId = Guid.NewGuid();
+        var appUsageLocalId = Guid.NewGuid();
+        var domainAccessLocalId = Guid.NewGuid();
+        var blockAttemptLocalId = Guid.NewGuid();
+        var syncStartedAt = DateTimeOffset.UtcNow.AddMinutes(-5);
+        var syncFinishedAt = DateTimeOffset.UtcNow;
         var syncRequest = new SyncBatchRequest(
             batchId,
             deviceAuth.DeviceId,
-            DateTimeOffset.UtcNow.AddMinutes(-5),
-            DateTimeOffset.UtcNow,
-            [new AppUsageRecord(Guid.NewGuid(), "com.example.app", "Example", DateOnly.FromDateTime(DateTime.UtcNow), 1000, null, null, 1)],
-            [new DomainAccessRecord(Guid.NewGuid(), "gambling.example", "1.1.1.1", "udp", 53, "gambling", DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow, 1, null, "none", "dns")],
-            [new BlockAttemptRecord(Guid.NewGuid(), "blocked.example", "1.1.1.1", "udp", 53, DateTimeOffset.UtcNow, null, null, "none", "dns")]);
+            syncStartedAt,
+            syncFinishedAt,
+            [new AppUsageRecord(appUsageLocalId, "com.example.app", "Example", DateOnly.FromDateTime(DateTime.UtcNow), 1000, null, syncFinishedAt, 1)],
+            [new DomainAccessRecord(domainAccessLocalId, "gambling.example", "1.1.1.1", "udp", 53, "gambling", syncFinishedAt.AddMinutes(-1), syncFinishedAt, 1, null, "none", "dns")],
+            [new BlockAttemptRecord(blockAttemptLocalId, "blocked.example", "1.1.1.1", "udp", 53, syncFinishedAt, null, null, "none", "dns")]);
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", deviceAuth.AccessToken);
         var syncResponse = await client.PostAsJsonAsync("/api/v1/sync/batches", syncRequest);
+        await EnsureSuccessWithBodyAsync(syncResponse);
         Assert.Equal(HttpStatusCode.Accepted, syncResponse.StatusCode);
         var accepted = await ReadJsonAsync<SyncBatchResponse>(syncResponse);
 
@@ -66,6 +73,16 @@ public sealed class BackendFlowTests
         Assert.Equal(accepted.SyncBatchId, duplicate.SyncBatchId);
         Assert.Equal(3, accepted.RecordsAccepted);
 
+        var updatedSyncRequest = syncRequest with
+        {
+            ClientBatchId = Guid.NewGuid(),
+            OccurredTo = syncFinishedAt.AddMinutes(1),
+            AppUsages = [syncRequest.AppUsages![0] with { TotalForegroundMs = 2500, OpenCountEstimate = 2 }],
+            DomainAccesses = [syncRequest.DomainAccesses![0] with { LastAccessAt = syncFinishedAt.AddMinutes(1), AccessCount = 4 }]
+        };
+        var updatedSyncResponse = await client.PostAsJsonAsync("/api/v1/sync/batches", updatedSyncRequest);
+        Assert.Equal(HttpStatusCode.Accepted, updatedSyncResponse.StatusCode);
+
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", guardianAuth.AccessToken);
         var ruleResponse = await client.PostAsJsonAsync(
             "/api/v1/rules",
@@ -75,13 +92,20 @@ public sealed class BackendFlowTests
         Assert.Equal("blocked.example", rule.Value);
 
         var alerts = await ReadJsonAsync<List<AlertDto>>(await client.GetAsync("/api/v1/alerts"));
-        Assert.True(alerts.Count >= 2);
+        Assert.Equal(2, alerts.Count);
 
-        var domainAccesses = await ReadJsonAsync<List<DomainAccessView>>(await client.GetAsync("/api/v1/domain-accesses"));
-        Assert.Contains(domainAccesses, access =>
+        var domainAccesses = await ReadJsonAsync<PagedResponse<DomainAccessView>>(await client.GetAsync("/api/v1/domain-accesses"));
+        Assert.Equal(1, domainAccesses.TotalCount);
+        var domainAccess = Assert.Single(domainAccesses.Items, access =>
             access.ChildDisplayName == "Crianca" &&
-            access.Domain == "gambling.example" &&
-            access.LastAccessAt.Offset == TimeSpan.Zero);
+            access.Domain == "gambling.example");
+        Assert.Equal(4, domainAccess.AccessCount);
+        Assert.Equal(syncFinishedAt.AddMinutes(1), domainAccess.LastAccessAt);
+
+        var appUsages = await ReadJsonAsync<PagedResponse<AppUsageView>>(await client.GetAsync("/api/v1/app-usages"));
+        var appUsage = Assert.Single(appUsages.Items);
+        Assert.Equal(2500, appUsage.TotalForegroundMs);
+        Assert.Equal(2, appUsage.OpenCountEstimate);
 
         var alertStatusResponse = await client.PatchAsJsonAsync(
             $"/api/v1/alerts/{alerts[0].Id}/status",
@@ -147,5 +171,13 @@ public sealed class SafeNavigationFactory : WebApplicationFactory<Program>
             services.AddDbContext<SafeNavigationDbContext>(options =>
                 options.UseInMemoryDatabase(_databaseName));
         });
+    }
+
+    protected override IHost CreateHost(IHostBuilder builder)
+    {
+        var host = base.CreateHost(builder);
+        using var scope = host.Services.CreateScope();
+        scope.ServiceProvider.GetRequiredService<SafeNavigationDbContext>().Database.EnsureCreated();
+        return host;
     }
 }

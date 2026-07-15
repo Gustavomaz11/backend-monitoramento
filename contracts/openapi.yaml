@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Navegacao Segura API
-  version: 0.1.0-phase1
+  version: 0.2.0
   description: Contrato inicial da API para controle parental transparente.
 servers:
   - url: https://api.localhost.test
@@ -20,6 +20,7 @@ paths:
   /api/v1/auth/register:
     post:
       tags: [Auth]
+      security: []
       summary: Cadastra um responsável.
       requestBody:
         required: true
@@ -39,6 +40,7 @@ paths:
   /api/v1/auth/login:
     post:
       tags: [Auth]
+      security: []
       summary: Autentica responsável.
       requestBody:
         required: true
@@ -58,6 +60,7 @@ paths:
   /api/v1/auth/refresh:
     post:
       tags: [Auth]
+      security: []
       summary: Rotaciona access token usando refresh token.
       requestBody:
         required: true
@@ -104,6 +107,7 @@ paths:
   /api/v1/device-pairing/complete:
     post:
       tags: [Pairing]
+      security: []
       summary: Vincula dispositivo Android usando código ou QR Code.
       requestBody:
         required: true
@@ -174,7 +178,7 @@ paths:
       security:
         - deviceBearer: []
       summary: Sincroniza registros coletados no Android.
-      description: Endpoint idempotente por deviceId e clientBatchId.
+      description: Endpoint idempotente por lote e por registro local dentro de cada dispositivo.
       requestBody:
         required: true
         content:
@@ -204,22 +208,85 @@ paths:
           schema:
             type: string
             format: uuid
-        - name: limit
+        - name: domain
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: page
           in: query
           schema:
             type: integer
-            default: 100
+            default: 1
             minimum: 1
-            maximum: 500
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
       responses:
         "200":
           description: Historico de dominios.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/DomainAccessView"
+                $ref: "#/components/schemas/PagedDomainAccessResponse"
+
+  /api/v1/app-usages:
+    get:
+      tags: [Dashboard]
+      security:
+        - guardianBearer: []
+      summary: Lista o uso diario de aplicativos com paginacao.
+      parameters:
+        - name: deviceId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+      responses:
+        "200":
+          description: Uso de aplicativos.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PagedAppUsageResponse"
 
   /api/v1/dashboard/summary:
     get:
@@ -740,6 +807,69 @@ components:
         source:
           type: string
           enum: [dns, sni_if_available, ip_only, manual, unknown]
+    AppUsageView:
+      type: object
+      required: [id, deviceId, childDisplayName, deviceName, packageName, usageDate, totalForegroundMs, openCountEstimate]
+      properties:
+        id:
+          type: string
+          format: uuid
+        deviceId:
+          type: string
+          format: uuid
+        childDisplayName:
+          type: string
+        deviceName:
+          type: string
+        packageName:
+          type: string
+        appName:
+          type: string
+          nullable: true
+        usageDate:
+          type: string
+          format: date
+        totalForegroundMs:
+          type: integer
+          format: int64
+        firstUsedAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastUsedAt:
+          type: string
+          format: date-time
+          nullable: true
+        openCountEstimate:
+          type: integer
+    PagedDomainAccessResponse:
+      type: object
+      required: [items, page, pageSize, totalCount]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/DomainAccessView"
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalCount:
+          type: integer
+    PagedAppUsageResponse:
+      type: object
+      required: [items, page, pageSize, totalCount]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AppUsageView"
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalCount:
+          type: integer
     BlockAttemptRecord:
       allOf:
         - $ref: "#/components/schemas/DomainAccessRecord"

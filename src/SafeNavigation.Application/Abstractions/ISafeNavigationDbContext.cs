@@ -13,6 +13,7 @@ public interface ISafeNavigationDbContext
     DbSet<RefreshToken> RefreshTokens { get; }
     DbSet<DeviceRefreshToken> DeviceRefreshTokens { get; }
     DbSet<AppUsage> AppUsages { get; }
+    DbSet<DomainCategory> DomainCategories { get; }
     DbSet<DomainAccess> DomainAccesses { get; }
     DbSet<BlockAttempt> BlockAttempts { get; }
     DbSet<BlockingRule> BlockingRules { get; }

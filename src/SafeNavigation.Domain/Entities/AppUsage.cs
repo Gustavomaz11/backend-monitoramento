@@ -4,6 +4,7 @@ public sealed class AppUsage
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid DeviceId { get; set; }
+    public Guid ClientRecordId { get; set; }
     public Device? Device { get; set; }
     public string PackageName { get; set; } = string.Empty;
     public string? AppName { get; set; }
