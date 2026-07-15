@@ -27,17 +27,19 @@ builder.Services.AddCors(options =>
             .GetSection("Cors:AllowedOrigins")
             .Get<string[]>() ?? [];
 
-        if (allowedOrigins.Contains("*"))
+        if (builder.Environment.IsDevelopment() && allowedOrigins.Contains("*"))
         {
-            if (!builder.Environment.IsDevelopment())
-            {
-                throw new InvalidOperationException("Cors:AllowedOrigins cannot contain '*' in production.");
-            }
-
             policy.AllowAnyOrigin()
                 .AllowAnyHeader()
                 .AllowAnyMethod();
             return;
+        }
+
+        allowedOrigins = allowedOrigins.Where(origin => origin != "*").ToArray();
+        if (!builder.Environment.IsDevelopment() && allowedOrigins.Length == 0)
+        {
+            var productionOrigin = builder.Configuration["Cors:ProductionOrigin"];
+            if (!string.IsNullOrWhiteSpace(productionOrigin)) allowedOrigins = [productionOrigin];
         }
 
         if (allowedOrigins.Length > 0)

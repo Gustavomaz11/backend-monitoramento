@@ -42,7 +42,7 @@ No Render:
 4. A variavel `DATABASE_URL` vem do banco gerenciado do Render.
 5. `Jwt__SigningKey` e gerada automaticamente pelo Blueprint.
 6. `Database__AutoMigrate=true` aplica migrations na inicializacao.
-7. Configure `Cors__AllowedOrigins__0` com a URL exata do painel Vercel. `*` e rejeitado em producao.
+7. Configure `Cors__AllowedOrigins__0` com a URL exata do painel Vercel. Valores `*` sao ignorados em producao e o fallback permanece restrito ao dominio oficial do painel.
 
 Health check: `/health`.
 
