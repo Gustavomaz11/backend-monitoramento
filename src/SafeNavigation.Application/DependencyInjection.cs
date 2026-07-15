@@ -11,6 +11,7 @@ public static class DependencyInjection
         services.Configure<AuthOptions>(configuration.GetSection("Auth"));
         services.Configure<PairingOptions>(configuration.GetSection("Pairing"));
         services.AddScoped<AuthService>();
+        services.AddScoped<DeviceGuardianAccessService>();
         services.AddScoped<PairingService>();
         services.AddScoped<DeviceService>();
         services.AddScoped<DomainAccessService>();

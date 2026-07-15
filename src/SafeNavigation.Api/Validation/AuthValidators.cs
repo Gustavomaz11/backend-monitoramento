@@ -23,6 +23,16 @@ public sealed class LoginRequestValidator : AbstractValidator<LoginRequest>
     }
 }
 
+public sealed class GuardianCredentialVerificationRequestValidator
+    : AbstractValidator<GuardianCredentialVerificationRequest>
+{
+    public GuardianCredentialVerificationRequestValidator()
+    {
+        RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(320);
+        RuleFor(x => x.Password).NotEmpty().MaximumLength(200);
+    }
+}
+
 public sealed class RefreshTokenRequestValidator : AbstractValidator<RefreshTokenRequest>
 {
     public RefreshTokenRequestValidator()

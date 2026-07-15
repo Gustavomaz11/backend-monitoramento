@@ -153,6 +153,15 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             });
     });
+    options.AddPolicy("GuardianCredentialVerification", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.User.FindFirst("sub")?.Value ?? "anonymous-device",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(5),
+                QueueLimit = 0
+            }));
 });
 
 var app = builder.Build();
