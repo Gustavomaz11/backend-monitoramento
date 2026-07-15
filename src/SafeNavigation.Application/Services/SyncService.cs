@@ -93,6 +93,11 @@ public sealed class SyncService(ISafeNavigationDbContext db, IClock clock, SyncA
     {
         if (records is null || records.Count == 0) return 0;
 
+        records = records
+            .Where(x => x.Source.Equals("browser_navigation", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (records.Count == 0) return 0;
+
         var clientIds = records.Select(x => x.LocalId).ToList();
         var existing = await db.DomainAccesses
             .Where(x => x.DeviceId == device.Id && clientIds.Contains(x.ClientRecordId))

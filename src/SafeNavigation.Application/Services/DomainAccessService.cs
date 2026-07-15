@@ -13,7 +13,9 @@ public sealed class DomainAccessService(ISafeNavigationDbContext db)
     {
         var page = Math.Max(request.Page, 1);
         var pageSize = Math.Clamp(request.PageSize, 1, 100);
-        var query = db.DomainAccesses.Where(x => x.Device!.Child!.GuardianId == guardianId);
+        var query = db.DomainAccesses.Where(x =>
+            x.Device!.Child!.GuardianId == guardianId &&
+            x.Source == "browser_navigation");
 
         if (request.DeviceId is not null) query = query.Where(x => x.DeviceId == request.DeviceId);
         if (!string.IsNullOrWhiteSpace(request.Domain))

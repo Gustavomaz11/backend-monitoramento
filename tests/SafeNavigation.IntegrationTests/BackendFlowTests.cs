@@ -77,7 +77,10 @@ public sealed class BackendFlowTests
             syncStartedAt,
             syncFinishedAt,
             [new AppUsageRecord(appUsageLocalId, "com.example.app", "Example", DateOnly.FromDateTime(DateTime.UtcNow), 1000, null, syncFinishedAt, 1)],
-            [new DomainAccessRecord(domainAccessLocalId, "gambling.example", "1.1.1.1", "udp", 53, "gambling", syncFinishedAt.AddMinutes(-1), syncFinishedAt, 1, null, "none", "dns")],
+            [
+                new DomainAccessRecord(domainAccessLocalId, "gambling.example", null, "https", 443, "gambling", syncFinishedAt.AddMinutes(-1), syncFinishedAt, 1, "com.android.chrome", "observed", "browser_navigation"),
+                new DomainAccessRecord(Guid.NewGuid(), "background-api.example", "1.1.1.1", "udp", 53, "unknown", syncFinishedAt, syncFinishedAt, 8, null, "none", "dns")
+            ],
             [new BlockAttemptRecord(blockAttemptLocalId, "blocked.example", "1.1.1.1", "udp", 53, syncFinishedAt, null, null, "none", "dns")]);
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", deviceAuth.AccessToken);
@@ -121,6 +124,8 @@ public sealed class BackendFlowTests
             access.Domain == "gambling.example");
         Assert.Equal(4, domainAccess.AccessCount);
         Assert.Equal(syncFinishedAt.AddMinutes(1), domainAccess.LastAccessAt);
+        Assert.Equal("browser_navigation", domainAccess.Source);
+        Assert.Equal("https", domainAccess.Protocol);
 
         var appUsages = await ReadJsonAsync<PagedResponse<AppUsageView>>(await client.GetAsync("/api/v1/app-usages"));
         var appUsage = Assert.Single(appUsages.Items);

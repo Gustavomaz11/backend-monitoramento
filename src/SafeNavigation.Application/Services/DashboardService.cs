@@ -55,7 +55,7 @@ public sealed class DashboardService(ISafeNavigationDbContext db, IClock clock)
         var topApps = todayAppUsages.Take(5).ToList();
 
         var topDomains = await db.DomainAccesses
-            .Where(x => deviceIds.Contains(x.DeviceId))
+            .Where(x => deviceIds.Contains(x.DeviceId) && x.Source == "browser_navigation")
             .OrderByDescending(x => x.AccessCount)
             .ThenByDescending(x => x.LastAccessAt)
             .Take(5)
@@ -78,7 +78,7 @@ public sealed class DashboardService(ISafeNavigationDbContext db, IClock clock)
             .ToListAsync(cancellationToken);
 
         var categoryRows = await db.DomainAccesses
-            .Where(x => deviceIds.Contains(x.DeviceId))
+            .Where(x => deviceIds.Contains(x.DeviceId) && x.Source == "browser_navigation")
             .Select(x => new
             {
                 CategoryName = x.Category == null ? null : x.Category.Name,

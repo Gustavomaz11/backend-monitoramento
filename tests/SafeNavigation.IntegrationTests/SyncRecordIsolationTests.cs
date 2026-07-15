@@ -68,7 +68,7 @@ public sealed class SyncRecordIsolationTests
             now.AddMinutes(-1),
             now,
             [new AppUsageRecord(appLocalId, "com.example.same", "Same", DateOnly.FromDateTime(DateTime.UtcNow), 1000, now.AddMinutes(-1), now, 1)],
-            [new DomainAccessRecord(domainLocalId, "same.example", "1.1.1.1", "tcp", 443, "unknown", now.AddMinutes(-1), now, 1, null, "none", "dns")],
+            [new DomainAccessRecord(domainLocalId, "same.example", null, "https", 443, "unknown", now.AddMinutes(-1), now, 1, "com.android.chrome", "observed", "browser_navigation")],
             []);
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", device.AccessToken);

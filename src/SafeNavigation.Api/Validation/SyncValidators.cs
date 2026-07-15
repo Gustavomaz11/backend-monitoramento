@@ -5,9 +5,9 @@ namespace SafeNavigation.Api.Validation;
 
 public sealed class SyncBatchRequestValidator : AbstractValidator<SyncBatchRequest>
 {
-    private static readonly string[] Protocols = ["tcp", "udp", "icmp", "unknown"];
+    private static readonly string[] Protocols = ["http", "https", "tcp", "udp", "icmp", "unknown"];
     private static readonly string[] Correlations = ["none", "estimated", "observed"];
-    private static readonly string[] Sources = ["dns", "sni_if_available", "ip_only", "manual", "unknown"];
+    private static readonly string[] Sources = ["browser_navigation", "dns", "sni_if_available", "ip_only", "manual", "unknown"];
 
     public SyncBatchRequestValidator()
     {
