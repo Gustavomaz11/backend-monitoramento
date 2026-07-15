@@ -42,7 +42,8 @@ No Render:
 4. A variavel `DATABASE_URL` vem do banco gerenciado do Render.
 5. `Jwt__SigningKey` e gerada automaticamente pelo Blueprint.
 6. `Database__AutoMigrate=true` aplica migrations na inicializacao.
-7. Configure `Cors__AllowedOrigins__0` com a URL exata do painel Vercel. Valores `*` sao ignorados em producao e o fallback permanece restrito ao dominio oficial do painel.
+7. `Database__SslMode=Require` segue a configuracao documentada pelo Render para o endpoint PostgreSQL interno e exige transporte TLS.
+8. Configure `Cors__AllowedOrigins__0` com a URL exata do painel Vercel. Valores `*` sao ignorados em producao e o fallback permanece restrito ao dominio oficial do painel.
 
 Health check: `/health`.
 
@@ -51,7 +52,7 @@ Tambem e possivel criar o Web Service manualmente:
 - Runtime: Docker.
 - Dockerfile path: `src/SafeNavigation.Api/Dockerfile`.
 - Porta: `10000`.
-- Variaveis: `ASPNETCORE_URLS=http://+:10000`, `DATABASE_URL`, `Jwt__SigningKey` e `Database__AutoMigrate=true`.
+- Variaveis: `ASPNETCORE_URLS=http://+:10000`, `DATABASE_URL`, `Jwt__SigningKey`, `Database__AutoMigrate=true` e `Database__SslMode=Require`.
 
 ## Escopo implementado
 
