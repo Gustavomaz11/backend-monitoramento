@@ -125,6 +125,27 @@ paths:
         "410":
           description: Código expirado.
 
+  /api/v1/device-pairing/refresh:
+    post:
+      tags: [Pairing]
+      security: []
+      summary: Rotaciona os tokens de um dispositivo vinculado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+      responses:
+        "200":
+          description: Tokens do dispositivo rotacionados.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceAuthResponse"
+        "401":
+          description: Refresh token invalido, expirado ou revogado.
+
   /api/v1/devices:
     get:
       tags: [Devices]

@@ -47,10 +47,12 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options, IClock clock) 
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SigningKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var tokenClaims = claims.Append(
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")));
         var token = new JwtSecurityToken(
             issuer: _options.Issuer,
             audience: audience,
-            claims: claims,
+            claims: tokenClaims,
             notBefore: clock.UtcNow.UtcDateTime,
             expires: clock.UtcNow.AddMinutes(_options.AccessTokenMinutes).UtcDateTime,
             signingCredentials: credentials);

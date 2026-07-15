@@ -45,6 +45,21 @@ public sealed class BackendFlowTests
         completeResponse.EnsureSuccessStatusCode();
         var deviceAuth = await ReadJsonAsync<DeviceAuthResponse>(completeResponse);
 
+        var deviceRefreshResponse = await client.PostAsJsonAsync(
+            "/api/v1/device-pairing/refresh",
+            new RefreshTokenRequest(deviceAuth.RefreshToken));
+        deviceRefreshResponse.EnsureSuccessStatusCode();
+        var refreshedDeviceAuth = await ReadJsonAsync<DeviceAuthResponse>(deviceRefreshResponse);
+        Assert.Equal(deviceAuth.DeviceId, refreshedDeviceAuth.DeviceId);
+        Assert.NotEqual(deviceAuth.AccessToken, refreshedDeviceAuth.AccessToken);
+        Assert.NotEqual(deviceAuth.RefreshToken, refreshedDeviceAuth.RefreshToken);
+
+        var reusedDeviceRefreshResponse = await client.PostAsJsonAsync(
+            "/api/v1/device-pairing/refresh",
+            new RefreshTokenRequest(deviceAuth.RefreshToken));
+        Assert.Equal(HttpStatusCode.Unauthorized, reusedDeviceRefreshResponse.StatusCode);
+        deviceAuth = refreshedDeviceAuth;
+
         var batchId = Guid.NewGuid();
         var appUsageLocalId = Guid.NewGuid();
         var domainAccessLocalId = Guid.NewGuid();

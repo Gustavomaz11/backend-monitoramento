@@ -109,6 +109,50 @@ public sealed class PairingService(
         return new DeviceAuthResponse(device.Id, tokenPair.AccessToken, tokenPair.RefreshToken, ToDto(config));
     }
 
+    public async Task<DeviceAuthResponse> RefreshDeviceAsync(
+        RefreshTokenRequest request,
+        CancellationToken cancellationToken)
+    {
+        var tokenHash = tokenService.HashOpaqueToken(request.RefreshToken);
+        var storedToken = await db.DeviceRefreshTokens
+            .Include(x => x.Device)
+            .ThenInclude(x => x!.Config)
+            .FirstOrDefaultAsync(x => x.TokenHash == tokenHash, cancellationToken);
+
+        if (storedToken is null ||
+            storedToken.RevokedAt is not null ||
+            storedToken.ExpiresAt <= clock.UtcNow ||
+            storedToken.Device?.Status != "active")
+        {
+            throw new UnauthorizedOperationException("Invalid device refresh token.");
+        }
+
+        var device = storedToken.Device ?? throw new UnauthorizedOperationException("Invalid device refresh token.");
+        var config = device.Config ?? throw new ResourceNotFoundException("Device configuration not found.");
+        storedToken.RevokedAt = clock.UtcNow;
+
+        var tokenPair = tokenService.CreateDeviceTokens(device);
+        db.DeviceRefreshTokens.Add(new DeviceRefreshToken
+        {
+            DeviceId = device.Id,
+            TokenHash = tokenService.HashOpaqueToken(tokenPair.RefreshToken),
+            ExpiresAt = clock.UtcNow.AddDays(options.Value.DeviceRefreshTokenDays),
+            CreatedAt = clock.UtcNow
+        });
+        db.AuditLogs.Add(new AuditLog
+        {
+            ActorType = "device",
+            ActorId = device.Id,
+            Action = "device.token_refreshed",
+            EntityType = "device",
+            EntityId = device.Id,
+            CreatedAt = clock.UtcNow
+        });
+
+        await db.SaveChangesAsync(cancellationToken);
+        return new DeviceAuthResponse(device.Id, tokenPair.AccessToken, tokenPair.RefreshToken, ToDto(config));
+    }
+
     private static DeviceConfigDto ToDto(DeviceConfig config) =>
         new(config.RetentionDays, config.VpnEnabled, config.UsageStatsEnabled, config.SyncIntervalMinutes, config.Timezone, config.ConfigVersion);
 

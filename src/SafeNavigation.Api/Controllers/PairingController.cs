@@ -33,4 +33,14 @@ public sealed class PairingController(PairingService pairingService) : Controlle
         var response = await pairingService.CompleteAsync(request, cancellationToken);
         return Created($"/api/v1/devices/{response.DeviceId}", response);
     }
+
+    [HttpPost("device-pairing/refresh")]
+    public async Task<ActionResult<DeviceAuthResponse>> RefreshDevice(
+        RefreshTokenRequest request,
+        IValidator<RefreshTokenRequest> validator,
+        CancellationToken cancellationToken)
+    {
+        await validator.EnsureValidAsync(request, cancellationToken);
+        return Ok(await pairingService.RefreshDeviceAsync(request, cancellationToken));
+    }
 }

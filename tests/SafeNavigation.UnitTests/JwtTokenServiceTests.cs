@@ -21,7 +21,8 @@ public sealed class JwtTokenServiceTests
             new FixedClock());
 
         var guardianTokens = service.CreateGuardianTokens(new Guardian { Id = Guid.NewGuid(), Email = "parent@example.com" });
-        var deviceTokens = service.CreateDeviceTokens(new Device { Id = Guid.NewGuid(), DevicePublicId = "device" });
+        var device = new Device { Id = Guid.NewGuid(), DevicePublicId = "device" };
+        var deviceTokens = service.CreateDeviceTokens(device);
 
         var handler = new JwtSecurityTokenHandler();
         var guardianJwt = handler.ReadJwtToken(guardianTokens.AccessToken);
@@ -31,6 +32,11 @@ public sealed class JwtTokenServiceTests
         Assert.Contains("device-audience", deviceJwt.Audiences);
         Assert.Equal("guardian", guardianJwt.Claims.First(x => x.Type == "actor_type").Value);
         Assert.Equal("device", deviceJwt.Claims.First(x => x.Type == "actor_type").Value);
+        Assert.False(string.IsNullOrWhiteSpace(guardianJwt.Id));
+        Assert.False(string.IsNullOrWhiteSpace(deviceJwt.Id));
+        Assert.NotEqual(
+            deviceTokens.AccessToken,
+            service.CreateDeviceTokens(device).AccessToken);
     }
 
     private sealed class FixedClock : IClock
