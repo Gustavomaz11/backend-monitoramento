@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SafeNavigation.Api.Middleware;
+using SafeNavigation.Api.LiveStreaming;
 using SafeNavigation.Application;
 using SafeNavigation.Infrastructure;
 using SafeNavigation.Infrastructure.Persistence;
@@ -16,6 +17,10 @@ using SafeNavigation.Infrastructure.Security;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddSignalR(options => options.MaximumReceiveMessageSize = 128 * 1024);
+builder.Services.Configure<LiveStreamingOptions>(builder.Configuration.GetSection("LiveStreaming"));
+builder.Services.AddSingleton<DevicePresenceRegistry>();
+builder.Services.AddSingleton<LiveStreamSessionRegistry>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
@@ -90,6 +95,15 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
         options.Events = new JwtBearerEvents
         {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(accessToken) && context.HttpContext.Request.Path.StartsWithSegments("/hubs/live-stream"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            },
             OnTokenValidated = async context =>
             {
                 var subject = context.Principal?.FindFirst("sub")?.Value;
@@ -175,6 +189,7 @@ app.UseAuthorization();
 app.MapGet("/health/live", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
 app.MapHealthChecks("/health", new HealthCheckOptions()).AllowAnonymous();
 app.MapControllers();
+app.MapHub<LiveStreamHub>("/hubs/live-stream");
 
 app.Run();
 

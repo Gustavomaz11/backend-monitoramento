@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SafeNavigation.Application.Models;
+using SafeNavigation.Api.LiveStreaming;
 using SafeNavigation.Infrastructure.Persistence;
 
 namespace SafeNavigation.IntegrationTests;
@@ -27,6 +28,10 @@ public sealed class BackendFlowTests
         var guardianAuth = await ReadJsonAsync<AuthResponse>(registerResponse);
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", guardianAuth.AccessToken);
+        var liveStreamConfiguration = await ReadJsonAsync<LiveStreamConfiguration>(
+            await client.GetAsync("/api/v1/live-stream/configuration"));
+        Assert.NotEmpty(liveStreamConfiguration.IceServers);
+
         var emptyDashboard = await ReadJsonAsync<DashboardSummaryView>(await client.GetAsync("/api/v1/dashboard/summary"));
         Assert.Equal(0, emptyDashboard.ScreenTimeTodayMs);
         Assert.Empty(emptyDashboard.TopApps);

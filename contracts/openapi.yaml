@@ -10,6 +10,7 @@ tags:
   - name: Auth
   - name: Pairing
   - name: Devices
+  - name: LiveStreaming
   - name: Sync
   - name: Dashboard
   - name: DomainAccesses
@@ -205,6 +206,21 @@ paths:
       responses:
         "200":
           description: Configuração atualizada.
+
+  /api/v1/live-stream/configuration:
+    get:
+      tags: [LiveStreaming]
+      security:
+        - guardianBearer: []
+        - deviceBearer: []
+      summary: Retorna servidores ICE usados pelas conexoes WebRTC.
+      responses:
+        "200":
+          description: Configuracao STUN/TURN para o ator autenticado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveStreamConfiguration"
 
   /api/v1/sync/batches:
     post:
@@ -563,6 +579,28 @@ components:
           schema:
             $ref: "#/components/schemas/ProblemDetails"
   schemas:
+    LiveStreamConfiguration:
+      type: object
+      required: [iceServers]
+      properties:
+        iceServers:
+          type: array
+          items:
+            $ref: "#/components/schemas/IceServerConfiguration"
+    IceServerConfiguration:
+      type: object
+      required: [urls]
+      properties:
+        urls:
+          type: array
+          items:
+            type: string
+        username:
+          type: string
+          nullable: true
+        credential:
+          type: string
+          nullable: true
     RegisterGuardianRequest:
       type: object
       required: [email, password, displayName, acceptedTerms]

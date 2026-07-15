@@ -67,6 +67,20 @@ Tambem e possivel criar o Web Service manualmente:
 - CRUD de regras, alertas, pedidos de desbloqueio e endpoints de privacidade.
 - Alertas gerados durante sync para categorias sensiveis e tentativas bloqueadas.
 - Rate limiting global, auditoria inicial e validacao via FluentValidation.
+- Hub SignalR autenticado para presenca, autorizacao e sinalizacao WebRTC entre responsavel e dispositivo.
+- Configuracao autenticada de servidores ICE em `GET /api/v1/live-stream/configuration`.
+
+## Visualizacao ao vivo
+
+O video trafega diretamente entre navegador e celular por WebRTC; o backend retransmite somente SDP e candidatos ICE em `/hubs/live-stream`. Em producao, configure um servidor TURN para cobrir redes moveis, NAT simetrico e firewalls restritivos:
+
+```env
+LiveStreaming__IceServers__1__Urls__0=turn:turn.example.com:3478
+LiveStreaming__IceServers__1__Username=usuario
+LiveStreaming__IceServers__1__Credential=segredo
+```
+
+O proxy/reverse proxy do deploy deve aceitar WebSocket no caminho `/hubs/live-stream`.
 
 ## Segurança e privacidade
 
@@ -75,3 +89,4 @@ Tambem e possivel criar o Web Service manualmente:
 - JWT valida issuer, audience e tipo de ator antes das policies.
 - A API nao registra payload sensivel nos logs por implementacao propria.
 - O banco esta preparado com tabelas de auditoria, sync e retencao configuravel por dispositivo.
+- SDP, candidatos ICE, camera e tela nao sao persistidos pelo backend.
