@@ -71,6 +71,7 @@ public sealed class DeviceService(ISafeNavigationDbContext db, IClock clock)
         config.UsageStatsEnabled = request.UsageStatsEnabled;
         config.SyncIntervalMinutes = request.SyncIntervalMinutes;
         config.Timezone = request.Timezone;
+        config.UsageScheduleJson = UsageScheduleSerialization.Write(request.UsageSchedule);
         config.ConfigVersion += 1;
         config.UpdatedAt = clock.UtcNow;
 
@@ -92,5 +93,12 @@ public sealed class DeviceService(ISafeNavigationDbContext db, IClock clock)
     }
 
     private static DeviceConfigDto ToDto(SafeNavigation.Domain.Entities.DeviceConfig config) =>
-        new(config.RetentionDays, config.VpnEnabled, config.UsageStatsEnabled, config.SyncIntervalMinutes, config.Timezone, config.ConfigVersion);
+        new(
+            config.RetentionDays,
+            config.VpnEnabled,
+            config.UsageStatsEnabled,
+            config.SyncIntervalMinutes,
+            config.Timezone,
+            UsageScheduleSerialization.Read(config.UsageScheduleJson),
+            config.ConfigVersion);
 }

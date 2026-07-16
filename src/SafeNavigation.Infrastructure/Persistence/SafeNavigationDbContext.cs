@@ -60,6 +60,7 @@ public sealed class SafeNavigationDbContext(DbContextOptions<SafeNavigationDbCon
             entity.ToTable("device_configs");
             entity.HasOne(x => x.Device).WithOne(x => x.Config).HasForeignKey<DeviceConfig>(x => x.DeviceId);
             entity.HasIndex(x => x.DeviceId).IsUnique();
+            entity.Property(x => x.UsageScheduleJson).HasColumnType("jsonb");
         });
 
         modelBuilder.Entity<PairingCode>(entity =>

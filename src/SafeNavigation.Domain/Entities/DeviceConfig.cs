@@ -10,6 +10,7 @@ public sealed class DeviceConfig
     public bool UsageStatsEnabled { get; set; } = true;
     public int SyncIntervalMinutes { get; set; } = 60;
     public string Timezone { get; set; } = "America/Sao_Paulo";
+    public string UsageScheduleJson { get; set; } = "[]";
     public long ConfigVersion { get; set; } = 1;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

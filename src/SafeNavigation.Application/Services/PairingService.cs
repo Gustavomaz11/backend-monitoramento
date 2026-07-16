@@ -154,7 +154,14 @@ public sealed class PairingService(
     }
 
     private static DeviceConfigDto ToDto(DeviceConfig config) =>
-        new(config.RetentionDays, config.VpnEnabled, config.UsageStatsEnabled, config.SyncIntervalMinutes, config.Timezone, config.ConfigVersion);
+        new(
+            config.RetentionDays,
+            config.VpnEnabled,
+            config.UsageStatsEnabled,
+            config.SyncIntervalMinutes,
+            config.Timezone,
+            UsageScheduleSerialization.Read(config.UsageScheduleJson),
+            config.ConfigVersion);
 
     private static string CreatePairingCode()
     {

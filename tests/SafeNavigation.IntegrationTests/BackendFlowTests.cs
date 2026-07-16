@@ -49,7 +49,29 @@ public sealed class BackendFlowTests
             new CompletePairingRequest(pairing.PairingCode, new DeviceInfo("1.0", "14", "Google", "Pixel")));
         completeResponse.EnsureSuccessStatusCode();
         var deviceAuth = await ReadJsonAsync<DeviceAuthResponse>(completeResponse);
+        Assert.Equal(7, deviceAuth.Config.UsageSchedule.Count);
 
+        var configuredSchedule = deviceAuth.Config with
+        {
+            UsageSchedule = Enumerable.Range(1, 7)
+                .Select(day => new DailyUsageWindowDto(day, day <= 5, 7 * 60, 21 * 60))
+                .ToArray()
+        };
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", guardianAuth.AccessToken);
+        var updateScheduleResponse = await client.PutAsJsonAsync(
+            $"/api/v1/devices/{deviceAuth.DeviceId}/config",
+            configuredSchedule);
+        updateScheduleResponse.EnsureSuccessStatusCode();
+        var updatedConfig = await ReadJsonAsync<DeviceConfigDto>(updateScheduleResponse);
+        Assert.Equal(2, updatedConfig.ConfigVersion);
+        Assert.False(updatedConfig.UsageSchedule.Single(x => x.DayOfWeek == 6).Enabled);
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", deviceAuth.AccessToken);
+        var deviceConfig = await ReadJsonAsync<DeviceConfigDto>(
+            await client.GetAsync($"/api/v1/devices/{deviceAuth.DeviceId}/config"));
+        Assert.Equal(updatedConfig.UsageSchedule, deviceConfig.UsageSchedule);
+
+        client.DefaultRequestHeaders.Authorization = null;
         var deviceRefreshResponse = await client.PostAsJsonAsync(
             "/api/v1/device-pairing/refresh",
             new RefreshTokenRequest(deviceAuth.RefreshToken));
