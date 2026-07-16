@@ -99,7 +99,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             OnMessageReceived = context =>
             {
                 var accessToken = context.Request.Query["access_token"];
-                if (!string.IsNullOrEmpty(accessToken) && context.HttpContext.Request.Path.StartsWithSegments("/hubs/live-stream"))
+                var hubPath = context.HttpContext.Request.Path;
+                var isSignalRHub = hubPath.StartsWithSegments("/hubs/live-stream") ||
+                    hubPath.StartsWithSegments("/hubs/device-control");
+                if (!string.IsNullOrEmpty(accessToken) && isSignalRHub)
                 {
                     context.Token = accessToken;
                 }
@@ -200,6 +203,7 @@ app.MapGet("/health/live", () => Results.Ok(new { status = "ok" })).AllowAnonymo
 app.MapHealthChecks("/health", new HealthCheckOptions()).AllowAnonymous();
 app.MapControllers();
 app.MapHub<LiveStreamHub>("/hubs/live-stream");
+app.MapHub<DeviceControlHub>("/hubs/device-control");
 
 app.Run();
 

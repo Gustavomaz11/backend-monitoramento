@@ -1,6 +1,8 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Mvc;
+using SafeNavigation.Api.LiveStreaming;
 using SafeNavigation.Api.Validation;
 using SafeNavigation.Application.Models;
 using SafeNavigation.Application.Services;
@@ -9,7 +11,9 @@ namespace SafeNavigation.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/devices")]
-public sealed class DevicesController(DeviceService deviceService) : ControllerBase
+public sealed class DevicesController(
+    DeviceService deviceService,
+    IHubContext<DeviceControlHub> deviceControlHub) : ControllerBase
 {
     [Authorize(Policy = "GuardianOnly")]
     [HttpGet]
@@ -42,6 +46,10 @@ public sealed class DevicesController(DeviceService deviceService) : ControllerB
         CancellationToken cancellationToken)
     {
         await validator.EnsureValidAsync(request, cancellationToken);
-        return Ok(await deviceService.UpdateConfigAsync(deviceId, this.ActorId(), request, cancellationToken));
+        var updated = await deviceService.UpdateConfigAsync(deviceId, this.ActorId(), request, cancellationToken);
+        await deviceControlHub.Clients
+            .Group(DeviceControlHub.DeviceGroup(deviceId))
+            .SendAsync("DeviceConfigurationChanged", updated.ConfigVersion.ToString(), cancellationToken);
+        return Ok(updated);
     }
 }
